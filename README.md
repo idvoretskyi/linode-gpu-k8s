@@ -1,5 +1,7 @@
 # Akamai/Linode Kubeflow GPU Deployment
 
+[![CI](https://github.com/idvoretskyi/linode-kubeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-kubeflow/actions/workflows/ci.yml)
+
 OpenTofu infrastructure code for deploying GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) for machine learning workloads.
 
 ## Overview

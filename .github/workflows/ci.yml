@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  tofu-validate:
+    name: OpenTofu validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: latest
+
+      - name: Format check
+        run: |
+          cd tofu
+          tofu fmt -check -recursive
+
+      - name: Init (no backend)
+        run: |
+          cd tofu
+          tofu init -backend=false
+
+      - name: Validate configuration
+        run: |
+          cd tofu
+          tofu validate -no-color
