@@ -6,13 +6,15 @@ OpenTofu infrastructure code for deploying GPU-enabled Kubernetes clusters on Li
 
 This repository provides automated infrastructure deployment for a production-ready Kubernetes cluster with:
 
-- **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes
+- **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
+- **GPU Operator**: NVIDIA GPU Operator for automated GPU management
+- **Kubeflow**: Optional ML platform with Jupyter, Pipelines, KServe, and more
 - **High Availability**: Managed control plane with HA option
 - **Autoscaling**: Automatic node scaling (1-5 nodes)
 - **Security**: Configurable firewall rules and network policies
 - **Automation**: One-command deployment and management
 
-Designed for machine learning workloads and Kubeflow platform deployment.
+Designed for machine learning workloads with optional Kubeflow platform deployment.
 
 ## Quick Start
 
@@ -20,15 +22,22 @@ Designed for machine learning workloads and Kubeflow platform deployment.
 # Verify prerequisites
 ./setup.sh
 
-# Deploy cluster
-./deploy.sh
+# Deploy cluster with GPU operator
+./deploy.sh init
+./deploy.sh apply
 
-# Access cluster
-export KUBECONFIG=$(cd tofu && tofu output -raw kubeconfig_path)
+# Access cluster (kubeconfig automatically merged to ~/.kube/config)
 kubectl get nodes
+
+# Optional: Deploy with Kubeflow
+cd tofu
+tofu apply -var="install_kubeflow=true"
 ```
 
-Full deployment takes approximately 10-15 minutes.
+**Deployment time:**
+- Basic cluster: ~5 minutes
+- With GPU operator: ~15-20 minutes
+- With Kubeflow: ~30-40 minutes
 
 ## Prerequisites
 
@@ -97,18 +106,21 @@ See [Deployment Guide](docs/deployment.md) for detailed procedures.
 
 ## Configuration
 
-Default configuration deploys to Chicago (us-ord) with 2 GPU nodes. Customize by creating `tofu/tofu.tfvars`:
+Default configuration deploys to Chicago (us-ord) with GPU operator enabled. Customize by creating `tofu/tofu.tfvars`:
 
 ```hcl
-Example `tofu.tfvars`:
-
-```hcl
+# Basic cluster configuration
 # cluster_name_prefix = "my-cluster"  # Optional: defaults to your username
 region              = "us-ord"
 kubernetes_version  = "1.34"
-gpu_node_type       = "g1-gpu-rtx6000-1"
+gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada
+gpu_node_count      = 2
 autoscaler_min      = 1
 autoscaler_max      = 5
+
+# Optional components (enabled/disabled)
+install_gpu_operator = true   # Install NVIDIA GPU Operator (default: true)
+install_kubeflow     = false  # Install Kubeflow platform (default: false)
 ```
 
 See [Configuration Reference](docs/configuration.md) for all available options.
@@ -168,9 +180,21 @@ allowed_kubeflow_ui_ips = ["YOUR_IP/32"]
 ```
 ```
 
-**Install NVIDIA GPU Operator**:
+**Enable/Disable GPU Operator**:
 ```bash
-./deploy.sh install-nvidia
+# GPU operator is enabled by default
+# To disable: tofu apply -var="install_gpu_operator=false"
+```
+
+**Enable Kubeflow**:
+```bash
+cd tofu
+tofu apply -var="install_kubeflow=true"
+
+# Access Kubeflow dashboard
+kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+# Open: http://localhost:8080
+# Default credentials: user@example.com / 12341234
 ```
 
 **Destroy cluster**:
@@ -178,21 +202,27 @@ allowed_kubeflow_ui_ips = ["YOUR_IP/32"]
 ./deploy.sh destroy
 ```
 
-## Development Roadmap
+## Features
 
-### Phase 1: Infrastructure (Current)
-- [x] LKE cluster with GPU nodes
-- [x] High availability control plane
-- [x] Autoscaling configuration
-- [x] Firewall rules
-- [x] Automated deployment
+### Infrastructure
+- LKE cluster with GPU nodes (NVIDIA RTX 4000 Ada)
+- NVIDIA GPU Operator with automated driver installation
+- High availability control plane
+- Autoscaling configuration (1-5 nodes)
+- Firewall rules and network policies
+- Automated deployment scripts
+- Kubeconfig auto-merge to ~/.kube/config (no local files)
 
-### Phase 2: Kubeflow (Planned)
-- [ ] Kubeflow platform deployment
-- [ ] Jupyter notebook servers
-- [ ] ML pipelines
-- [ ] Model serving (KServe)
-- [ ] Experiment tracking (Katib)
+### Kubeflow Platform (Optional)
+- Modular Kubeflow deployment
+- Central Dashboard - Web UI for Kubeflow
+- Jupyter Notebooks - Interactive development environment
+- Kubeflow Pipelines - ML workflow orchestration
+- KServe - Model serving infrastructure
+- Katib - Hyperparameter tuning
+- Training Operator - Distributed training (PyTorch, TensorFlow, MPI, XGBoost)
+- Profiles - Multi-tenant namespace management
+- Volume and Tensorboard management
 
 ## Resources
 
