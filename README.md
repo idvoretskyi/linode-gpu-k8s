@@ -1,22 +1,24 @@
-# Akamai/Linode Kubeflow GPU Deployment
+# Linode GPU Kubernetes Infrastructure
 
 [![CI](https://github.com/idvoretskyi/linode-kubeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-kubeflow/actions/workflows/ci.yml)
 
-OpenTofu infrastructure code for deploying GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) for machine learning workloads.
+OpenTofu infrastructure code for deploying production-ready, GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) optimized for AI/ML workloads.
 
 ## Overview
 
-This repository provides automated infrastructure deployment for a production-ready Kubernetes cluster with:
+This repository provides automated infrastructure deployment for GPU-accelerated Kubernetes clusters with comprehensive monitoring, designed to serve as a foundation for AI/ML platforms and workloads.
 
+**Key Features:**
 - **GPU Compute**: NVIDIA RTX 4000 Ada GPU nodes with automated driver installation
-- **GPU Operator**: NVIDIA GPU Operator for automated GPU management
-- **Kubeflow**: Optional ML platform with Jupyter, Pipelines, KServe, and more
+- **GPU Operator**: NVIDIA GPU Operator for automated GPU management and monitoring
+- **Metrics API**: Kubernetes Metrics Server for resource monitoring and HPA
+- **Monitoring Stack**: Complete observability with Prometheus, Grafana, and Alertmanager
 - **High Availability**: Managed control plane with HA option
 - **Autoscaling**: Automatic node scaling (1-5 nodes)
 - **Security**: Configurable firewall rules and network policies
 - **Automation**: One-command deployment and management
 
-Designed for machine learning workloads with optional Kubeflow platform deployment.
+Designed as infrastructure foundation for AI/ML platforms like Kubeflow, Ray, MLflow, and custom ML workloads.
 
 ## Quick Start
 
@@ -24,22 +26,23 @@ Designed for machine learning workloads with optional Kubeflow platform deployme
 # Verify prerequisites
 ./setup.sh
 
-# Deploy cluster with GPU operator
+# Deploy cluster with GPU operator and monitoring
 ./deploy.sh init
 ./deploy.sh apply
 
 # Access cluster (kubeconfig automatically merged to ~/.kube/config)
 kubectl get nodes
+kubectl top nodes
 
-# Optional: Deploy with Kubeflow
-cd tofu
-tofu apply -var="install_kubeflow=true"
+# Access Grafana dashboard
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# Then visit: http://localhost:3000 (admin/admin)
 ```
 
 **Deployment time:**
 - Basic cluster: ~5 minutes
 - With GPU operator: ~15-20 minutes
-- With Kubeflow: ~30-40 minutes
+- With full monitoring stack: ~20-30 minutes
 
 ## Prerequisites
 
@@ -64,31 +67,18 @@ Run `./setup.sh` to verify all prerequisites are met.
 ```
 .
 ├── README.md              # This file
-├── CLAUDE.md              # AI assistant guidance
-├── docs/                  # Detailed documentation
-│   ├── architecture.md    # Infrastructure architecture
-│   ├── configuration.md   # Configuration reference
-│   ├── deployment.md      # Deployment procedures
-│   ├── gpu-validation.md  # GPU testing
-│   └── troubleshooting.md # Issue resolution
 ├── deploy.sh              # Main deployment script
 ├── setup.sh               # Prerequisites checker
 └── tofu/                  # OpenTofu infrastructure code
     ├── main.tf            # Core resources
     ├── variables.tf       # Configuration variables
     ├── outputs.tf         # Output values
-    └── tofu.tfvars.example # Configuration template
+    ├── tofu.tfvars.example # Configuration template
+    └── modules/           # Reusable modules
+        ├── gpu-operator/  # NVIDIA GPU Operator
+        ├── metrics-server/ # Kubernetes Metrics Server
+        └── kube-prometheus-stack/ # Monitoring stack
 ```
-
-## Documentation
-
-Comprehensive documentation is available in the `docs/` directory:
-
-- **[Architecture](docs/architecture.md)** - Infrastructure design and components
-- **[Configuration](docs/configuration.md)** - Configuration options and variables
-- **[Deployment](docs/deployment.md)** - Step-by-step deployment guide
-- **[GPU Validation](docs/gpu-validation.md)** - GPU testing and verification
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ## Deployment Commands
 
@@ -104,11 +94,11 @@ The `deploy.sh` script provides a unified interface for all operations:
 ./deploy.sh help          # Show all commands
 ```
 
-See [Deployment Guide](docs/deployment.md) for detailed procedures.
+For detailed documentation and procedures, see the sections below and the `tofu/modules/README.md` file.
 
 ## Configuration
 
-Default configuration deploys to Chicago (us-ord) with GPU operator enabled. Customize by creating `tofu/tofu.tfvars`:
+Default configuration deploys to Chicago (us-ord) with GPU operator and monitoring enabled. Customize by creating `tofu/tofu.tfvars`:
 
 ```hcl
 # Basic cluster configuration
@@ -116,16 +106,29 @@ Default configuration deploys to Chicago (us-ord) with GPU operator enabled. Cus
 region              = "us-ord"
 kubernetes_version  = "1.34"
 gpu_node_type       = "g2-gpu-rtx4000a1-s"  # RTX 4000 Ada
-gpu_node_count      = 2
+gpu_node_count      = 1
 autoscaler_min      = 1
 autoscaler_max      = 5
 
-# Optional components (enabled/disabled)
-install_gpu_operator = true   # Install NVIDIA GPU Operator (default: true)
-install_kubeflow     = false  # Install Kubeflow platform (default: false)
+# High availability
+ha_control_plane = true
+
+# GPU Operator (automated NVIDIA driver installation)
+install_gpu_operator  = true
+enable_gpu_monitoring = true
+
+# Metrics Server (kubectl top, HPA support)
+install_metrics_server = true
+
+# Monitoring Stack (Prometheus + Grafana + Alertmanager)
+install_monitoring      = true
+grafana_admin_password  = "admin"  # Change in production!
+prometheus_retention    = "15d"
+prometheus_storage_size = "50Gi"
+grafana_storage_size    = "10Gi"
 ```
 
-See [Configuration Reference](docs/configuration.md) for all available options.
+See `tofu/tofu.tfvars.example` for all available configuration options.
 
 ## Cluster Specifications
 
@@ -138,65 +141,71 @@ See [Configuration Reference](docs/configuration.md) for all available options.
 | CPU | 4 vCPU per node |
 | Memory | 16 GB per node |
 | Storage | 512 GB SSD per node |
-| Nodes | 2 default, autoscaling 1-5 |
+| Nodes | 1 default, autoscaling 1-5 |
 
 ## Cost Estimation
 
 **GPU Nodes**: ~$1.50-2.00/hour per node (~$1,080-1,440/month per node)
 
+**Monthly Cost (1 node)**: ~$1,080-1,440
 **Monthly Cost (2 nodes)**: ~$2,160-2,880
 
 **Control Plane**: Free (standard) or additional charge (HA)
+**Storage**: Included in node pricing, additional for persistent volumes
 
 Costs are approximate. Check [Linode Pricing](https://www.linode.com/pricing/) for current rates.
 
 ## Security
 
 - API token automatically loaded from `linode-cli` configuration
-- Kubeconfig excluded from git tracking
-- Configurable firewall rules for kubectl and UI access
+- Kubeconfig excluded from git tracking (auto-merged to ~/.kube/config)
+- Configurable firewall rules for kubectl and monitoring access
 - Support for Kubernetes RBAC and Network Policies
+- Grafana admin password (configurable, sensitive)
 
 For production deployments, restrict access by IP:
 
 ```hcl
-allowed_kubectl_ips     = ["YOUR_IP/32"]
-allowed_kubeflow_ui_ips = ["YOUR_IP/32"]
+allowed_kubectl_ips    = ["YOUR_IP/32"]
+allowed_monitoring_ips = ["YOUR_IP/32"]
 ```
 
 ## Cluster Management
 
 **Scale nodes**:
 ```bash
-# Edit tofu/tofu.tfvars: gpu_node_count = 3
+# Edit tofu/tofu.tfvars: gpu_node_count = 2
 ./deploy.sh apply
 ```
 
 **Update Kubernetes version**:
 ```bash
-### Upgrade Kubernetes Version
-
-```bash
 # Edit tofu/tofu.tfvars: kubernetes_version = "1.35"
 ./deploy.sh apply
 ```
+
+**Access Grafana**:
+```bash
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# Visit: http://localhost:3000 (default: admin/admin)
 ```
 
-**Enable/Disable GPU Operator**:
+**Access Prometheus**:
 ```bash
-# GPU operator is enabled by default
-# To disable: tofu apply -var="install_gpu_operator=false"
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# Visit: http://localhost:9090
 ```
 
-**Enable Kubeflow**:
+**Check GPU availability**:
 ```bash
-cd tofu
-tofu apply -var="install_kubeflow=true"
+kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
+kubectl get pods -n gpu-operator
+```
 
-# Access Kubeflow dashboard
-kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
-# Open: http://localhost:8080
-# Default credentials: user@example.com / 12341234
+**Check resource usage**:
+```bash
+kubectl top nodes
+kubectl top pods -A
 ```
 
 **Destroy cluster**:
@@ -215,30 +224,48 @@ kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
 - Automated deployment scripts
 - Kubeconfig auto-merge to ~/.kube/config (no local files)
 
-### Kubeflow Platform (Optional)
-- Modular Kubeflow deployment
-- Central Dashboard - Web UI for Kubeflow
-- Jupyter Notebooks - Interactive development environment
-- Kubeflow Pipelines - ML workflow orchestration
-- KServe - Model serving infrastructure
-- Katib - Hyperparameter tuning
-- Training Operator - Distributed training (PyTorch, TensorFlow, MPI, XGBoost)
-- Profiles - Multi-tenant namespace management
-- Volume and Tensorboard management
+### Observability
+- Kubernetes Metrics Server (resource metrics API)
+- Prometheus (metrics collection and storage)
+- Grafana (visualization and dashboards)
+- Alertmanager (alert management)
+- Node Exporter (hardware and OS metrics)
+- Kube State Metrics (Kubernetes object metrics)
+- DCGM Exporter (GPU metrics integration)
+
+### GPU Support
+- NVIDIA GPU Operator (automated driver management)
+- GPU device plugin (resource scheduling)
+- GPU monitoring with DCGM exporter
+- GPU metrics integration with Prometheus
+- Support for CUDA workloads
+
+## Use Cases
+
+This infrastructure is designed for:
+
+- **ML Platform Deployment**: Foundation for Kubeflow, MLflow, Ray, etc.
+- **AI Model Training**: Distributed training with GPU acceleration
+- **AI Model Serving**: Inference workloads with GPU support
+- **Data Science Workflows**: Jupyter notebooks with GPU access
+- **Custom ML Applications**: Any containerized AI/ML workload
+- **Development & Testing**: GPU-enabled development environments
 
 ## Resources
 
 - [Linode Kubernetes Engine Documentation](https://www.linode.com/docs/products/compute/kubernetes/)
 - [OpenTofu Documentation](https://opentofu.org/docs/)
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Kubeflow Documentation](https://www.kubeflow.org/docs/)
 - [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Grafana Documentation](https://grafana.com/docs/)
 
 ## Support
 
 For issues and questions:
-- Review [Troubleshooting Guide](docs/troubleshooting.md)
-- Check [Linode Community Forums](https://www.linode.com/community/)
+- Review the troubleshooting commands in the sections above
+- Check `tofu/modules/README.md` for module-specific troubleshooting
+- Visit [Linode Community Forums](https://www.linode.com/community/)
 - Consult [Kubernetes documentation](https://kubernetes.io/docs/)
 - Open an issue on GitHub
 
@@ -258,5 +285,6 @@ Ihor Dvoretskyi ([@idvoretskyi](https://github.com/idvoretskyi))
 
 - [Akamai/Linode](https://www.linode.com/) for the cloud platform
 - [OpenTofu](https://opentofu.org/) community for infrastructure-as-code tooling
-- [Kubernetes](https://kubernetes.io/) and [Kubeflow](https://www.kubeflow.org/) communities
+- [Kubernetes](https://kubernetes.io/) community
 - [NVIDIA](https://www.nvidia.com/) for GPU support and documentation
+- [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) communities

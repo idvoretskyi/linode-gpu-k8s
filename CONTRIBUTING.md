@@ -1,11 +1,11 @@
-# Contributing to Linode GPU Kubeflow Deployment
+# Contributing to Linode GPU Kubernetes Infrastructure
 
-Thank you for your interest in contributing! This project provides infrastructure-as-code for deploying GPU-enabled Kubernetes clusters on Linode for machine learning workloads.
+Thank you for your interest in contributing! This project provides infrastructure-as-code for deploying GPU-enabled Kubernetes clusters on Linode optimized for AI/ML workloads.
 
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR-USERNAME/akamai-linode-kubeflow-deployment.git`
+2. Clone your fork: `git clone https://github.com/YOUR-USERNAME/linode-kubeflow.git`
 3. Create a feature branch: `git checkout -b feature/your-feature-name`
 4. Make your changes
 5. Test thoroughly
@@ -125,11 +125,11 @@ Brief description of changes
 ## Areas for Contribution
 
 ### High Priority
-- [ ] Kubeflow deployment automation (Phase 2)
+- [ ] Enhanced monitoring dashboards and alerts
 - [ ] Multi-region support
 - [ ] Cost optimization strategies
-- [ ] Monitoring and alerting setup
 - [ ] Backup and disaster recovery
+- [ ] Additional ML platform integration examples
 
 ### Features
 - [ ] Custom GPU node types

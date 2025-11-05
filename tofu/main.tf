@@ -50,7 +50,7 @@ data "external" "username" {
 
 # LKE Cluster with GPU nodes
 resource "linode_lke_cluster" "gpu_cluster" {
-  label       = "${local.cluster_prefix}-lke-gpu-kubeflow"
+  label       = "${local.cluster_prefix}-lke-gpu"
   k8s_version = var.kubernetes_version
   region      = var.region
   tags        = var.tags
@@ -126,11 +126,11 @@ resource "linode_firewall" "lke_firewall" {
   }
 
   inbound {
-    label    = "allow-kubeflow-ui"
+    label    = "allow-monitoring-ui"
     action   = "ACCEPT"
     protocol = "TCP"
-    ports    = "80,443"
-    ipv4     = var.allowed_kubeflow_ui_ips
+    ports    = "80,443,3000,9090"
+    ipv4     = var.allowed_monitoring_ips
   }
 
   inbound_policy  = "DROP"
@@ -141,7 +141,7 @@ resource "linode_firewall" "lke_firewall" {
   depends_on = [linode_lke_cluster.gpu_cluster]
 }
 
-# GPU Operator Module (Phase 2)
+# GPU Operator Module
 module "gpu_operator" {
   count  = var.install_gpu_operator ? 1 : 0
   source = "./modules/gpu-operator"
@@ -158,25 +158,34 @@ module "gpu_operator" {
   ]
 }
 
-# Kubeflow Module (Phase 2)
-module "kubeflow" {
-  count  = var.install_kubeflow ? 1 : 0
-  source = "./modules/kubeflow"
+# Metrics Server Module
+module "metrics_server" {
+  count  = var.install_metrics_server ? 1 : 0
+  source = "./modules/metrics-server"
 
-  namespace            = "kubeflow"
-  kubeflow_version     = var.kubeflow_version
-  install_method       = var.kubeflow_install_method
-  default_user_email   = var.kubeflow_user_email
-  default_user_profile = "kubeflow-user"
-  gpu_quota            = "4"
-  cpu_quota            = "16"
-  memory_quota         = "64Gi"
-  expose_via_nodeport  = var.kubeflow_expose_nodeport
-  nodeport_http        = 30080
-  nodeport_https       = 30443
+  namespace = "kube-system"
+
+  depends_on = [
+    linode_lke_cluster.gpu_cluster,
+    null_resource.merge_kubeconfig
+  ]
+}
+
+# Kube Prometheus Stack Module
+module "kube_prometheus_stack" {
+  count  = var.install_monitoring ? 1 : 0
+  source = "./modules/kube-prometheus-stack"
+
+  namespace               = "monitoring"
+  grafana_admin_password  = var.grafana_admin_password
+  prometheus_retention    = var.prometheus_retention
+  prometheus_storage_size = var.prometheus_storage_size
+  grafana_storage_size    = var.grafana_storage_size
+  enable_gpu_monitoring   = var.enable_gpu_monitoring && var.install_gpu_operator
 
   depends_on = [
     module.gpu_operator,
+    module.metrics_server,
     linode_lke_cluster.gpu_cluster,
     null_resource.merge_kubeconfig
   ]

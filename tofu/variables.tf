@@ -51,7 +51,7 @@ variable "ha_control_plane" {
 variable "tags" {
   description = "Tags to apply to resources"
   type        = list(string)
-  default     = ["kubeflow", "gpu", "ml"]
+  default     = ["lke", "gpu", "ml", "ai"]
 }
 
 variable "allowed_kubectl_ips" {
@@ -60,8 +60,8 @@ variable "allowed_kubectl_ips" {
   default     = ["0.0.0.0/0"] # Consider restricting this in production
 }
 
-variable "allowed_kubeflow_ui_ips" {
-  description = "IP addresses allowed to access Kubeflow UI"
+variable "allowed_monitoring_ips" {
+  description = "IP addresses allowed to access monitoring UIs (Grafana, Prometheus)"
   type        = list(string)
   default     = ["0.0.0.0/0"] # Consider restricting this in production
 }
@@ -85,33 +85,41 @@ variable "enable_gpu_monitoring" {
   default     = true
 }
 
-# Kubeflow Configuration
-variable "install_kubeflow" {
-  description = "Install Kubeflow platform"
+# Metrics Server Configuration
+variable "install_metrics_server" {
+  description = "Install Kubernetes Metrics Server for resource metrics API"
   type        = bool
-  default     = false # Disabled by default, can be enabled when needed
+  default     = true
 }
 
-variable "kubeflow_version" {
-  description = "Kubeflow version to install"
-  type        = string
-  default     = "v1.9.0"
-}
-
-variable "kubeflow_install_method" {
-  description = "Kubeflow installation method: 'manifests' or 'quick'"
-  type        = string
-  default     = "manifests"
-}
-
-variable "kubeflow_user_email" {
-  description = "Default user email for Kubeflow"
-  type        = string
-  default     = "user@example.com"
-}
-
-variable "kubeflow_expose_nodeport" {
-  description = "Expose Kubeflow UI via NodePort"
+# Monitoring Stack Configuration
+variable "install_monitoring" {
+  description = "Install kube-prometheus-stack for comprehensive monitoring"
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "grafana_admin_password" {
+  description = "Admin password for Grafana (change in production)"
+  type        = string
+  default     = "admin"
+  sensitive   = true
+}
+
+variable "prometheus_retention" {
+  description = "Prometheus data retention period"
+  type        = string
+  default     = "15d"
+}
+
+variable "prometheus_storage_size" {
+  description = "Prometheus persistent storage size"
+  type        = string
+  default     = "50Gi"
+}
+
+variable "grafana_storage_size" {
+  description = "Grafana persistent storage size"
+  type        = string
+  default     = "10Gi"
 }

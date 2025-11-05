@@ -63,14 +63,24 @@ output "gpu_operator_status" {
   value       = var.install_gpu_operator ? module.gpu_operator[0].gpu_operator_status : null
 }
 
-output "kubeflow_namespace" {
-  description = "Kubeflow namespace (if installed)"
-  value       = var.install_kubeflow ? module.kubeflow[0].namespace : null
+output "metrics_server_namespace" {
+  description = "Metrics Server namespace (if installed)"
+  value       = var.install_metrics_server ? module.metrics_server[0].namespace : null
 }
 
-output "kubeflow_version_installed" {
-  description = "Kubeflow version installed (if installed)"
-  value       = var.install_kubeflow ? module.kubeflow[0].kubeflow_version : null
+output "monitoring_namespace" {
+  description = "Monitoring stack namespace (if installed)"
+  value       = var.install_monitoring ? module.kube_prometheus_stack[0].namespace : null
+}
+
+output "grafana_service" {
+  description = "Grafana service name for port-forwarding (if installed)"
+  value       = var.install_monitoring ? module.kube_prometheus_stack[0].grafana_service : null
+}
+
+output "prometheus_service" {
+  description = "Prometheus service name for port-forwarding (if installed)"
+  value       = var.install_monitoring ? module.kube_prometheus_stack[0].prometheus_service : null
 }
 
 output "setup_commands" {
@@ -87,7 +97,9 @@ output "setup_commands" {
 
     ${var.install_gpu_operator ? "# GPU Operator installed - Check GPU availability\n    kubectl get nodes -o json | jq '.items[].status.capacity.\"nvidia.com/gpu\"'\n    kubectl get pods -n gpu-operator" : "# GPU Operator not installed - Run: tofu apply -var=\"install_gpu_operator=true\""}
 
-    ${var.install_kubeflow ? "# Kubeflow installed - Access the dashboard\n    kubectl port-forward svc/istio-ingressgateway -n istio-system 8080:80\n    # Then visit: http://localhost:8080\n    # Default credentials: user@example.com / 12341234" : "# Kubeflow not installed - Run: tofu apply -var=\"install_kubeflow=true\""}
+    ${var.install_monitoring ? "# Monitoring stack installed - Access Grafana\n    kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80\n    # Then visit: http://localhost:3000\n    # Default credentials: admin / admin\n    \n    # Access Prometheus\n    kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090\n    # Then visit: http://localhost:9090" : "# Monitoring not installed - Run: tofu apply -var=\"install_monitoring=true\""}
+
+    ${var.install_metrics_server ? "# Metrics Server installed - Check resource usage\n    kubectl top nodes\n    kubectl top pods -A" : "# Metrics Server not installed"}
   EOT
 }
 
@@ -96,7 +108,8 @@ output "gpu_validation_commands" {
   value       = var.install_gpu_operator ? module.gpu_operator[0].validation_commands : "GPU Operator not installed"
 }
 
-output "kubeflow_access_commands" {
-  description = "Commands to access Kubeflow (if installed)"
-  value       = var.install_kubeflow ? module.kubeflow[0].access_commands : "Kubeflow not installed"
+output "monitoring_access_commands" {
+  description = "Commands to access monitoring stack (if installed)"
+  sensitive   = true
+  value       = var.install_monitoring ? "# Access Grafana\nkubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80\n# Then visit: http://localhost:3000\n# Default credentials: admin / ${var.grafana_admin_password}\n\n# Access Prometheus\nkubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090\n# Then visit: http://localhost:9090\n\n# Access Alertmanager\nkubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093\n# Then visit: http://localhost:9093" : "Monitoring stack not installed"
 }

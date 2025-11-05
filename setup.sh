@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Quick setup script for Linode Kubeflow GPU deployment
+# Quick setup script for Linode GPU Kubernetes infrastructure
 # This script checks prerequisites and helps set up linode-cli
 
 set -e
@@ -58,7 +58,7 @@ if command -v helm &> /dev/null; then
     VERSION=$(helm version --short)
     echo -e "${GREEN}✓${NC} $VERSION"
 else
-    echo -e "${YELLOW}⚠${NC} Not installed (optional for Kubeflow)"
+    echo -e "${YELLOW}⚠${NC} Not installed (optional)"
     echo "  Install: brew install helm"
 fi
 

@@ -1,6 +1,6 @@
-# Linode Kubeflow Terraform Modules
+# OpenTofu Modules
 
-This directory contains reusable Terraform modules for deploying GPU workloads and Kubeflow on Linode Kubernetes Engine (LKE).
+This directory contains reusable OpenTofu modules for deploying GPU-enabled Kubernetes infrastructure with comprehensive monitoring on Linode Kubernetes Engine (LKE).
 
 ## Module Overview
 
@@ -38,156 +38,142 @@ module "gpu_operator" {
 - `gpu_operator_status` - Helm release status
 - `validation_commands` - Commands to test GPU functionality
 
-### 2. Kubeflow Module (`kubeflow/`)
+### 2. Metrics Server Module (`metrics-server/`)
 
-Installs the Kubeflow ML platform with all core components:
-- Central Dashboard
-- Jupyter Notebooks with GPU support
-- Kubeflow Pipelines
-- Katib (hyperparameter tuning)
-- KServe (model serving)
-- Training Operator (distributed training)
-- Istio (service mesh)
-- Dex (authentication)
+Installs Kubernetes Metrics Server for resource metrics API:
+- Enables `kubectl top` commands
+- Provides metrics for Horizontal Pod Autoscaler (HPA)
+- High availability with 2 replicas
 
 **Key Features:**
-- Full ML platform deployment
-- GPU-accelerated notebooks
-- Pipeline orchestration
-- Model serving infrastructure
-- User profile management with resource quotas
+- Resource usage monitoring
+- HPA support
+- Pod Disruption Budget
+- Optimized for Linode environment
 
 **Usage:**
 ```hcl
-module "kubeflow" {
-  source = "./modules/kubeflow"
+module "metrics_server" {
+  source = "./modules/metrics-server"
 
-  namespace               = "kubeflow"
-  kubeflow_version        = "v1.9.0"
-  install_method          = "manifests"
-  default_user_email      = "user@example.com"
-  gpu_quota               = "4"
-  cpu_quota               = "16"
-  memory_quota            = "64Gi"
-  expose_via_nodeport     = false
+  namespace = "kube-system"
 }
 ```
 
 **Outputs:**
-- `namespace` - Kubeflow namespace
-- `kubeflow_version` - Installed version
-- `default_user_profile` - Default user profile name
-- `access_commands` - Commands to access Kubeflow UI
-- `validation_commands` - Commands to test Kubeflow
+- `release_name` - Helm release name
+- `namespace` - Metrics Server namespace
+- `version` - Chart version
 
-## Deployment Phases
+### 3. Kube Prometheus Stack Module (`kube-prometheus-stack/`)
 
-### Phase 1: Infrastructure (Required)
-Deploy the base LKE cluster with GPU nodes:
+Installs comprehensive monitoring stack:
+- Prometheus (metrics collection and storage)
+- Grafana (visualization and dashboards)
+- Alertmanager (alert management)
+- Node Exporter (hardware metrics)
+- Kube State Metrics (Kubernetes object metrics)
+
+**Key Features:**
+- Complete observability solution
+- GPU metrics integration (via DCGM exporter)
+- Persistent storage for metrics and dashboards
+- Customizable retention and storage sizes
+- Pre-configured for Linode block storage
+
+**Usage:**
+```hcl
+module "kube_prometheus_stack" {
+  source = "./modules/kube-prometheus-stack"
+
+  namespace                = "monitoring"
+  grafana_admin_password   = "secure-password"
+  prometheus_retention     = "15d"
+  prometheus_storage_size  = "50Gi"
+  grafana_storage_size     = "10Gi"
+  enable_gpu_monitoring    = true
+}
+```
+
+**Outputs:**
+- `namespace` - Monitoring namespace
+- `release_name` - Helm release name
+- `grafana_service` - Grafana service name
+- `prometheus_service` - Prometheus service name
+- `alertmanager_service` - Alertmanager service name
+
+## Deployment Workflow
+
+### Step 1: Deploy Base Infrastructure
+Deploy the LKE cluster with GPU nodes:
 ```bash
+cd tofu
+tofu init
+tofu plan
 tofu apply
 ```
 
-### Phase 2: GPU Operator (Recommended)
-Enable GPU support:
-```bash
-tofu apply -var="install_gpu_operator=true"
-```
-
-Wait for GPU operator to be ready (~5-10 minutes), then verify:
+### Step 2: Verify GPU Operator
+Wait for GPU operator to be ready (~10-15 minutes), then verify:
 ```bash
 kubectl get pods -n gpu-operator
 kubectl get nodes -o json | jq '.items[].status.capacity."nvidia.com/gpu"'
 ```
 
-### Phase 3: Kubeflow (Optional)
-Deploy the full ML platform:
+### Step 3: Access Monitoring
+Access Grafana dashboard:
 ```bash
-tofu apply -var="install_gpu_operator=true" -var="install_kubeflow=true"
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+# Visit: http://localhost:3000 (default: admin/admin)
 ```
 
-**Warning:** Kubeflow installation takes 15-30 minutes and requires:
-- GPU operator already installed
-- Stable cluster with sufficient resources
-- Patience during component initialization
-
-## Installation Methods
-
-### Manifests Method (Recommended)
-Installs Kubeflow components one by one:
-- More reliable
-- Better error handling
-- Easier troubleshooting
-- Longer installation time (~20-30 minutes)
-
-```hcl
-kubeflow_install_method = "manifests"
-```
-
-### Quick Method
-Installs all components at once:
-- Faster installation (~10-15 minutes)
-- Less granular control
-- May require retries
-
-```hcl
-kubeflow_install_method = "quick"
-```
-
-## Resource Quotas
-
-Default user profile quotas:
-- **GPUs:** 4
-- **CPUs:** 16
-- **Memory:** 64Gi
-
-Customize in module call:
-```hcl
-module "kubeflow" {
-  # ...
-  gpu_quota    = "8"
-  cpu_quota    = "32"
-  memory_quota = "128Gi"
-}
-```
-
-## Accessing Kubeflow
-
-### Method 1: Port Forward (Recommended for Development)
+Access Prometheus:
 ```bash
-kubectl port-forward svc/istio-ingressgateway -n istio-system 8080:80
-# Visit: http://localhost:8080
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# Visit: http://localhost:9090
 ```
 
-### Method 2: NodePort (Testing)
-Enable in configuration:
+### Step 4: Check Resource Usage
+Use Metrics Server:
+```bash
+kubectl top nodes
+kubectl top pods -A
+```
+
+## Configuration Options
+
+### GPU Operator
 ```hcl
-kubeflow_expose_nodeport = true
-nodeport_http            = 30080
-nodeport_https           = 30443
+install_gpu_operator  = true
+gpu_operator_version  = "v24.9.0"
+enable_gpu_monitoring = true
 ```
 
-Access via: `http://<node-ip>:30080`
-
-### Method 3: LoadBalancer (Production)
-Get external IP:
-```bash
-kubectl get svc istio-ingressgateway -n istio-system
+### Metrics Server
+```hcl
+install_metrics_server = true
 ```
 
-## Default Credentials
+### Monitoring Stack
+```hcl
+install_monitoring      = true
+grafana_admin_password  = "secure-password"
+prometheus_retention    = "15d"
+prometheus_storage_size = "50Gi"
+grafana_storage_size    = "10Gi"
+```
 
-When using Dex authentication:
-- **Email:** `user@example.com` (or your configured email)
-- **Password:** `12341234`
+## Monitoring GPU Metrics
 
-## Monitoring
+GPU metrics are exposed via DCGM exporter when GPU monitoring is enabled:
 
-GPU metrics are exposed via DCGM exporter when enabled:
 ```bash
+# Check DCGM exporter pods
 kubectl get pods -n gpu-operator -l app=nvidia-dcgm-exporter
-kubectl port-forward -n gpu-operator svc/nvidia-dcgm-exporter 9400:9400
-# Metrics at: http://localhost:9400/metrics
+
+# View GPU metrics in Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+# Then query: dcgm_gpu_utilization
 ```
 
 ## Troubleshooting
@@ -204,56 +190,65 @@ kubectl logs -n gpu-operator -l app=nvidia-driver-daemonset
 kubectl describe nodes | grep -A 5 Capacity
 ```
 
-### Kubeflow Installation Stuck
+### Monitoring Stack Issues
 ```bash
-# Check component status
-kubectl get pods -A | grep -E "kubeflow|istio|cert-manager"
+# Check monitoring pods
+kubectl get pods -n monitoring
 
-# Check specific namespace
-kubectl get pods -n kubeflow
-kubectl describe pod <pod-name> -n kubeflow
+# Check persistent volumes
+kubectl get pvc -n monitoring
 
-# Re-run installation
-tofu apply -replace="module.kubeflow[0].null_resource.install_kubeflow"
+# Check logs
+kubectl logs -n monitoring <pod-name>
 ```
 
-### Can't Access Kubeflow UI
+### Metrics Server Issues
 ```bash
-# Check Istio gateway
-kubectl get svc -n istio-system
+# Check metrics-server pods
+kubectl get pods -n kube-system -l app.kubernetes.io/name=metrics-server
 
-# Check ingress gateway pods
-kubectl get pods -n istio-system -l app=istio-ingressgateway
-
-# Port forward troubleshooting
-kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+# Test metrics API
+kubectl top nodes
 ```
 
 ## Module Dependencies
 
 ```
 linode_lke_cluster
-    └─> local_file.kubeconfig
-        └─> module.gpu_operator
-            └─> module.kubeflow
+    └─> null_resource.merge_kubeconfig
+        ├─> module.gpu_operator
+        ├─> module.metrics_server
+        └─> module.kube_prometheus_stack
 ```
 
 **Important:**
-- GPU Operator must be fully ready before installing Kubeflow
-- Kubeflow depends on GPU operator for GPU-accelerated workloads
-- Allow 5-10 minutes between GPU operator and Kubeflow installation
+- All modules are optional and can be enabled/disabled independently
+- GPU Operator should be ready before GPU workloads
+- Monitoring stack integrates with GPU Operator for GPU metrics
+
+## Storage Considerations
+
+Persistent volumes are created for:
+- **Prometheus**: 50Gi (configurable)
+- **Grafana**: 10Gi (configurable)
+- **Alertmanager**: 10Gi (fixed)
+
+Storage class: `linode-block-storage-retain`
 
 ## Cost Considerations
 
 Approximate monthly costs (us-ord region):
-- **Base cluster:** $2,160-2,880 (2x RTX 4000 Ada nodes)
-- **GPU Operator:** Free (software only)
-- **Kubeflow:** Free (software only)
-- **Additional storage:** Variable (PVCs for notebooks, models)
+- **Base cluster**: $1,080-1,440 per GPU node
+- **GPU Operator**: Free (software only)
+- **Metrics Server**: Free (software only)
+- **Monitoring Stack**: Free (software only)
+- **Storage**: ~$10-20/month for monitoring volumes
 
 ## References
 
 - [NVIDIA GPU Operator Documentation](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/)
-- [Kubeflow Documentation](https://www.kubeflow.org/docs/)
+- [Kubernetes Metrics Server](https://github.com/kubernetes-sigs/metrics-server)
+- [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Grafana Documentation](https://grafana.com/docs/)
 - [Linode Kubernetes Engine](https://www.linode.com/docs/products/compute/kubernetes/)
-- [Kubeflow Manifests Repository](https://github.com/kubeflow/manifests)
