@@ -23,12 +23,14 @@ Designed as infrastructure foundation for AI/ML platforms like Kubeflow, Ray, ML
 ## Quick Start
 
 ```bash
-# Verify prerequisites
-./setup.sh
+# Configure Linode API token
+export LINODE_TOKEN=$(linode-cli configure get token)
 
-# Deploy cluster with GPU operator and monitoring
-./deploy.sh init
-./deploy.sh apply
+# Initialize and deploy
+cd tofu
+tofu init
+tofu plan
+tofu apply
 
 # Access cluster (kubeconfig automatically merged to ~/.kube/config)
 kubectl get nodes
@@ -49,26 +51,22 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 - **OpenTofu** >= 1.6 - Infrastructure as code tool
 - **linode-cli** - Linode API client (configured with token)
 - **kubectl** - Kubernetes command-line tool
-- **jq** - JSON processor
-- **helm** - Kubernetes package manager (optional)
 
 ### macOS Installation
 
 ```bash
-brew install opentofu kubectl jq helm
+brew install opentofu kubectl
 pip3 install linode-cli
 linode-cli configure
 ```
-
-Run `./setup.sh` to verify all prerequisites are met.
 
 ## Project Structure
 
 ```
 .
 ├── README.md              # This file
-├── deploy.sh              # Main deployment script
-├── setup.sh               # Prerequisites checker
+├── LICENSE                # MIT License
+├── CONTRIBUTING.md        # Contribution guidelines
 └── tofu/                  # OpenTofu infrastructure code
     ├── main.tf            # Core resources
     ├── variables.tf       # Configuration variables
@@ -82,19 +80,31 @@ Run `./setup.sh` to verify all prerequisites are met.
 
 ## Deployment Commands
 
-The `deploy.sh` script provides a unified interface for all operations:
+Standard OpenTofu workflow:
 
 ```bash
-./deploy.sh init          # Initialize OpenTofu
-./deploy.sh plan          # Review changes
-./deploy.sh apply         # Deploy infrastructure
-./deploy.sh status        # Show cluster status
-./deploy.sh gpu-check     # Verify GPU availability
-./deploy.sh destroy       # Remove all resources
-./deploy.sh help          # Show all commands
+cd tofu
+
+# Initialize
+tofu init
+
+# Review changes
+tofu plan
+
+# Deploy infrastructure
+tofu apply
+
+# Destroy infrastructure
+tofu destroy
+
+# Format code
+tofu fmt -recursive
+
+# Validate configuration
+tofu validate
 ```
 
-For detailed documentation and procedures, see the sections below and the `tofu/modules/README.md` file.
+For detailed module documentation, see `tofu/modules/README.md`.
 
 ## Configuration
 
@@ -174,14 +184,18 @@ allowed_monitoring_ips = ["YOUR_IP/32"]
 
 **Scale nodes**:
 ```bash
-# Edit tofu/tofu.tfvars: gpu_node_count = 2
-./deploy.sh apply
+# Edit tofu/tofu.tfvars
+# gpu_node_count = 2
+
+cd tofu && tofu apply
 ```
 
 **Update Kubernetes version**:
 ```bash
-# Edit tofu/tofu.tfvars: kubernetes_version = "1.35"
-./deploy.sh apply
+# Edit tofu/tofu.tfvars
+# kubernetes_version = "1.35"
+
+cd tofu && tofu apply
 ```
 
 **Access Grafana**:
@@ -210,7 +224,7 @@ kubectl top pods -A
 
 **Destroy cluster**:
 ```bash
-./deploy.sh destroy
+cd tofu && tofu destroy
 ```
 
 ## Features

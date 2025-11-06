@@ -21,9 +21,6 @@ Thank you for your interest in contributing! This project provides infrastructur
 
 ### Local Testing
 ```bash
-# Check prerequisites
-./setup.sh
-
 # Validate OpenTofu configuration
 cd tofu
 tofu init
@@ -31,8 +28,7 @@ tofu validate
 tofu fmt -check -recursive
 
 # Test deployment (in a test account/region)
-cd ..
-./deploy.sh plan
+tofu plan
 ```
 
 ## Contribution Guidelines

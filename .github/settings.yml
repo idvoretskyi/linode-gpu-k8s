@@ -1,13 +1,13 @@
-# Repository settings for linode-kubeflow
+# Repository settings for linode-gpu-k8s
 # This file is used by the Settings GitHub App to manage repository configuration
 # https://github.com/apps/settings
 
 repository:
   # Repository description
-  name: linode-kubeflow
-  description: Infrastructure as Code for deploying Kubeflow on Linode Kubernetes Engine using OpenTofu/Terraform
+  name: linode-gpu-k8s
+  description: Infrastructure as Code for deploying GPU-enabled Kubernetes clusters on Linode with comprehensive monitoring, optimized for AI/ML workloads
   homepage: ""
-  topics: kubeflow, kubernetes, linode, lke, terraform, opentofu, machine-learning, mlops, infrastructure-as-code
+  topics: kubernetes, linode, lke, opentofu, terraform, gpu, nvidia, ml, ai, machine-learning, mlops, infrastructure-as-code, prometheus, grafana, monitoring
   
   # Repository features
   has_issues: true
