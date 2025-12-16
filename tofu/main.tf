@@ -6,10 +6,6 @@ terraform {
       source  = "linode/linode"
       version = "~> 3.5"
     }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.0"
-    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 3.0"
@@ -71,8 +67,8 @@ resource "linode_lke_cluster" "gpu_cluster" {
 }
 
 # Merge kubeconfig into ~/.kube/config (no local file storage)
-resource "null_resource" "merge_kubeconfig" {
-  triggers = {
+resource "terraform_data" "merge_kubeconfig" {
+  triggers_replace = {
     kubeconfig_content = base64decode(linode_lke_cluster.gpu_cluster.kubeconfig)
     cluster_id         = linode_lke_cluster.gpu_cluster.id
   }
@@ -154,7 +150,7 @@ module "gpu_operator" {
 
   depends_on = [
     linode_lke_cluster.gpu_cluster,
-    null_resource.merge_kubeconfig
+    terraform_data.merge_kubeconfig
   ]
 }
 
@@ -167,7 +163,7 @@ module "metrics_server" {
 
   depends_on = [
     linode_lke_cluster.gpu_cluster,
-    null_resource.merge_kubeconfig
+    terraform_data.merge_kubeconfig
   ]
 }
 
@@ -187,6 +183,6 @@ module "kube_prometheus_stack" {
     module.gpu_operator,
     module.metrics_server,
     linode_lke_cluster.gpu_cluster,
-    null_resource.merge_kubeconfig
+    terraform_data.merge_kubeconfig
   ]
 }

@@ -1,6 +1,5 @@
 # Linode GPU Kubernetes Infrastructure
 
-[![CI](https://github.com/idvoretskyi/linode-kubeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/idvoretskyi/linode-kubeflow/actions/workflows/ci.yml)
 
 OpenTofu infrastructure code for deploying production-ready, GPU-enabled Kubernetes clusters on Linode Kubernetes Engine (LKE) optimized for AI/ML workloads.
 
@@ -78,30 +77,25 @@ linode-cli configure
         └── kube-prometheus-stack/ # Monitoring stack
 ```
 
-## Deployment Commands
+## Workflow
 
-Standard OpenTofu workflow:
+Common OpenTofu actions:
 
 ```bash
+# From repo root
 cd tofu
 
-# Initialize
+# Initialize providers and modules
 tofu init
 
-# Review changes
-tofu plan
+# Review and apply changes
+tofu plan && tofu apply
 
-# Deploy infrastructure
-tofu apply
+# Format and validate configuration
+tofu fmt -recursive && tofu validate
 
-# Destroy infrastructure
+# Destroy infrastructure when no longer needed
 tofu destroy
-
-# Format code
-tofu fmt -recursive
-
-# Validate configuration
-tofu validate
 ```
 
 For detailed module documentation, see `tofu/modules/README.md`.

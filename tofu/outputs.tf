@@ -60,7 +60,7 @@ output "gpu_operator_namespace" {
 
 output "gpu_operator_status" {
   description = "GPU operator status (if installed)"
-  value       = var.install_gpu_operator ? module.gpu_operator[0].gpu_operator_status : null
+  value       = var.install_gpu_operator ? module.gpu_operator[0].status : null
 }
 
 output "metrics_server_namespace" {

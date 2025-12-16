@@ -87,7 +87,7 @@ resource "helm_release" "gpu_operator" {
 }
 
 # Wait for GPU operator to be fully ready
-resource "null_resource" "wait_for_gpu_operator" {
+resource "terraform_data" "wait_for_gpu_operator" {
   depends_on = [helm_release.gpu_operator]
 
   provisioner "local-exec" {
